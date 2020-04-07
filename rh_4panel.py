@@ -29,6 +29,9 @@ rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
 yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
 
+# What 3D product strings
+prod3d = ['_t.','_r.','_z.']
+
 # Set RDA credentials
 session_manager.set_session_options(auth=p.opt['creds'])
 
@@ -47,8 +50,15 @@ casefiles = [i for i in allfiles if yyyymmdd in  i]
 # Find the indexes in the list of files we want to load
 indexes = [allfiles.index(f) for f in casefiles]
 
+# Trim down files further based on product
+li = []
+for cf in indexes:
+  for p3 in prod3d:
+    if p3 in files[cf].name:
+      li.append(cf)
+
 # Load using list comprehension, creating list of xarray dataset objects
-singlesets = [files[i].remote_access(use_xarray=True) for i in indexes]
+singlesets = [files[i].remote_access(use_xarray=True) for i in li]
 
 # Combine all of the datasets (all files into a single dataset)
 ds = xr.combine_by_coords(singlesets)

@@ -36,6 +36,10 @@ rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
 yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
 
+# What 3D product strings
+prod3d = ['_u.','_v.','_z.']
+prod2d = ['_10u.','_10v.','_msl.','_2t.']
+
 # Set RDA credentials
 session_manager.set_session_options(auth=p.opt['creds'])
 
@@ -59,16 +63,28 @@ sfcfiles = [i for i in allsfc if yyyymmdd in i]
 indexes = [allfiles.index(f) for f in casefiles]
 sindexes = [allsfc.index(f) for f in allsfc]
 
+# Trim down files further based on product
+li = []
+for cf in indexes:
+  for p3 in prod3d:
+    if p3 in files[cf].name:
+      li.append(cf)
+lsi = []
+for sf in sindexes:
+  for p2 in prod2d:
+    if p2 in sfiles[sf].name:
+      lsi.append(sf)
+
 # Load using list comprehension, creating list of xarray dataset objects
-singlesets = [files[i].remote_access(use_xarray=True) for i in indexes]
-singlesfc = [sfiles[i].remote_access(use_xarray=True) for i in sindexes]
+singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+singlesfc = [sfiles[i].remote_access(use_xarray=True) for i in lsi]
 
 # Combine all of the datasets (all files into a single dataset)
 ds = xr.combine_by_coords(singlesets)
 sds = xr.combine_by_coords(singlesfc)
 
 # Trim down the surface data to what we want
-sds = sds[['SKT','MSL','SP','VAR_10U','VAR_10V','VAR_2T']].sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+sds = sds[['MSL','VAR_10U','VAR_10V','VAR_2T']].sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
 
 # Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
 ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
