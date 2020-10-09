@@ -66,12 +66,12 @@ sindexes = [allsfc.index(f) for f in allsfc]
 li = []
 for cf in indexes:
   for p3 in prod3d:
-    if p3 in files[cf].name:
+    if p3 in files[cf].name and '.nc' in files[cf].name:
       li.append(cf)
 lsi = []
 for sf in sindexes:
   for p2 in prod2d:
-    if p2 in sfiles[sf].name:
+    if p2 in sfiles[sf].name and '.nc' in files[cf].name:
       lsi.append(sf)
 
 # Load using list comprehension, creating list of xarray dataset objects

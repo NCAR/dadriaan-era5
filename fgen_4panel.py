@@ -51,7 +51,7 @@ indexes = [allfiles.index(f) for f in casefiles]
 li = []
 for cf in indexes:
   for p3 in prod3d:
-    if p3 in files[cf].name:
+    if p3 in files[cf].name and '.nc' in files[cf].name:
       li.append(cf)
 
 # Load using list comprehension, creating list of xarray dataset objects
