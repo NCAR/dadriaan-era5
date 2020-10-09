@@ -58,7 +58,7 @@ for cf in indexes:
 singlesets = [files[i].remote_access(use_xarray=True) for i in li]
 
 # Combine all of the datasets (all files into a single dataset)
-ds = xr.combine_by_coords(singlesets)
+ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
 print(ds)
 
 # Subset the dataset. We want all levels, at a specific time, and reduce lat/lon

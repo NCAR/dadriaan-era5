@@ -37,7 +37,7 @@ yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
 
 # What 3D product strings
-prod3d = ['_u.','_v.','_z.','_r.','_t.','_p.','_q.']
+prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.']
 
 # Set RDA credentials
 session_manager.set_session_options(auth=p.opt['creds'])
@@ -116,12 +116,6 @@ ds['TD'] = xr.DataArray(mpcalc.dewpoint_from_specific_humidity(ds['P'],ds['T'],d
 pbot = 1000.0*units('hPa')
 ptop = 100.0*units('hPa')
 
-# Test integration
-#print(math.sqrt((math.pow(np.trapz(ds['Q'].isel(latitude=100,longitude=100).sel(level=slice(300.0,1000.0))*ds['U'].isel(latitude=100,longitude=100).sel(level=slice(300.0,1000.0))*700.0)/9.81,2))+(math.pow(np.trapz(ds['Q'].isel(latitude=100,longitude=100).sel(level=slice(300.0,1000.0))*ds['V'].isel(latitude=100,longitude=100).sel(level=slice(300.0,1000.0))*700.0)/9.81,2))))
-#exit()
-#print(ds['P'].isel(latitude=100,longitude=100).sel(level=slice(100.0,1000.0)))
-#exit()
-
 # Pull out the pressure slices for IVT and PW calcs 
 p_ivt = ds['P'].isel(latitude=0,longitude=0).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,300.0))*100.0*units('pascals')
 #p_ivt = ds['P'].isel(latitude=0,longitude=0).sel(level=slice(300.0,1000.0))*100.0*units('pascals')
@@ -140,44 +134,20 @@ for x in range(0,dimval[0],1):
   for y in range(0,dimval[2],1):
 
     #print("=====IVT=====")
-    #t1 = datetime.datetime.now()
     q = ds['Q'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,300.0))
     u = ds['U'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,300.0))
     v = ds['V'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,300.0))
-
-    #print(q)
-    #print(u)
-    #print(v)
-    #print(q*u)
-    #print(q*v)
-    #print(p_ivt)
-    #print(np.trapz((q*u)))
-    #print(np.trapz((q*u),p_ivt))
-    #exit()
     
     termA = math.pow(np.trapz((q*u),p_ivt)/9.81,2)
     termB = math.pow(np.trapz((q*v),p_ivt)/9.81,2)
-    #print(termA)
-    #print(termB)
-    #print(math.sqrt(termA+termB))
     ivt[x,y] = math.sqrt(termA+termB)
-    #print(datetime.datetime.now()-t1)
 
     #print("=====PW=====")
-    #pw[x,y] = mpcalc.precipitable_water(ds['P'].isel(latitude=x,longitude=y),ds['TD'].isel(latitude=x,longitude=y),bottom=pbot,top=ptop).m
-    #a1 = datetime.datetime.now()
     #w = mpcalc.mixing_ratio_from_specific_humidity(ds['Q'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,100.0)))
-    #print(w.m)
-    #print(p_pw)
     #print(np.trapz(w.m,p_pw)/(9.81*1000.0)*-1000.0)
-    #print(mpcalc.precipitable_water(ds['P'].isel(latitude=x,longitude=y),ds['TD'].isel(latitude=x,longitude=y),bottom=pbot,top=ptop).m)
-    #print(mpcalc.precipitable_water(ds['P'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]),ds['TD'].isel(latitude=x,longitude=y).reindex(level=ds.level[::-1]),bottom=pbot,top=ptop).m)
     #pw[x,y] = np.trapz(w.m,p_pw)/(9.81*1000.0)
     pw[x,y] = mpcalc.precipitable_water(ds['P'].isel(latitude=x,longitude=y),ds['TD'].isel(latitude=x,longitude=y),bottom=pbot,top=ptop).m
-    #print(datetime.datetime.now()-a1)
-    #exit()
     
-
 # Now add PW to the dataset
 pwda = xr.DataArray(pw,dims=['latitude','longitude'],coords=[ds.coords['latitude'],ds.coords['longitude']],attrs={'units':'millimeters'})
 ivtda = xr.DataArray(ivt,dims=['latitude','longitude'],coords=[ds.coords['latitude'],ds.coords['longitude']])

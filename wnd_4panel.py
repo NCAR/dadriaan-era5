@@ -80,8 +80,8 @@ singlesets = [files[i].remote_access(use_xarray=True) for i in li]
 singlesfc = [sfiles[i].remote_access(use_xarray=True) for i in lsi]
 
 # Combine all of the datasets (all files into a single dataset)
-ds = xr.combine_by_coords(singlesets)
-sds = xr.combine_by_coords(singlesfc)
+ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
+sds = xr.combine_by_coords(singlesfc,combine_attrs="drop")
 
 # Trim down the surface data to what we want
 sds = sds[['MSL','VAR_10U','VAR_10V','VAR_2T']].sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
