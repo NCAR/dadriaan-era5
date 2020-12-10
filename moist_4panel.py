@@ -24,7 +24,7 @@ import metpy.calc as mpcalc
 import metpy.plots as mpplt
 from metpy.units import units
 
-import datetime, math
+import datetime, math, os
 
 # Find the correct Convair position file
 #acpos = "/home/dadriaan/projects/icicle/data/convair/planet/position/FINAL/ICICLE_Flight_%02d_position.csv" % (int(p.opt['fnum']))
@@ -35,44 +35,59 @@ rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
 # What date string
 yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
+hhmmss = rd.strftime('%H%M%S')
+fn = int(p.opt['fnum'])
 
-# What 3D product strings
-prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.']
+# File strings
+f3d = 'moist_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
+f2d = 'moist_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
 
-# Set RDA credentials
-session_manager.set_session_options(auth=p.opt['creds'])
+if not os.path.exists(f3d):
 
-# The dataset catalog
-cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
+  print("\nUSING RDA\n")
 
-# Get all of the datasets in the catalog
-files = cat.datasets
+  # What 3D product strings
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.']
 
-# Turn this list of files into a list
-allfiles = list(files)
+  # Set RDA credentials
+  session_manager.set_session_options(auth=p.opt['creds'])
 
-# Loop through the files and save the ones we want to load
-casefiles = [i for i in allfiles if yyyymmdd in  i]
+  # The dataset catalog
+  cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
 
-# Find the indexes in the list of files we want to load
-indexes = [allfiles.index(f) for f in casefiles]
+  # Get all of the datasets in the catalog
+  files = cat.datasets
 
-# Trim down files further based on product
-li = []
-for cf in indexes:
-  for p3 in prod3d:
-    if p3 in files[cf].name and '.nc' in files[cf].name:
-      li.append(cf)
+  # Turn this list of files into a list
+  allfiles = list(files)
 
-# Load using list comprehension, creating list of xarray dataset objects
-singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+  # Loop through the files and save the ones we want to load
+  casefiles = [i for i in allfiles if yyyymmdd in  i]
 
-# Combine all of the datasets (all files into a single dataset)
-ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
-#ds = xr.merge(singlesets)
+  # Find the indexes in the list of files we want to load
+  indexes = [allfiles.index(f) for f in casefiles]
 
-# Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
-ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+  # Trim down files further based on product
+  li = []
+  for cf in indexes:
+    for p3 in prod3d:
+      if p3 in files[cf].name and '.nc' in files[cf].name:
+        li.append(cf)
+
+  # Load using list comprehension, creating list of xarray dataset objects
+  singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+
+  # Combine all of the datasets (all files into a single dataset)
+  ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
+  #ds = xr.merge(singlesets)
+
+  # Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
+  ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+ 
+  ds.to_netcdf(f3d)
+else:
+  print("\nLOADING LOCAL\n")
+  ds = xr.open_dataset(f3d)
 
 # Coordinate reference system
 crs = ccrs.LambertConformal(central_longitude=-100.0, central_latitude=45.0)
@@ -116,6 +131,9 @@ ds['TD'] = xr.DataArray(mpcalc.dewpoint_from_specific_humidity(ds['P'],ds['T'],d
 pbot = 1000.0*units('hPa')
 ptop = 100.0*units('hPa')
 
+# Compute theta-E 850
+thetaE_850 = mpcalc.equivalent_potential_temperature(ds['P'].sel(level=850.0),ds['T'].sel(level=850.0),ds['TD'].sel(level=850.0))
+
 # Pull out the pressure slices for IVT and PW calcs 
 p_ivt = ds['P'].isel(latitude=0,longitude=0).reindex(level=ds.level[::-1]).sel(level=slice(1000.0,300.0))*100.0*units('pascals')
 #p_ivt = ds['P'].isel(latitude=0,longitude=0).sel(level=slice(300.0,1000.0))*100.0*units('pascals')
@@ -128,6 +146,7 @@ ds.load()
 print(datetime.datetime.now()-t1)
 
 # Loop over x and y and compute the PW
+tx = datetime.datetime.now()
 pw = np.empty([dimval[0],dimval[2]])
 ivt = np.empty([dimval[0],dimval[2]])
 for x in range(0,dimval[0],1):
@@ -147,7 +166,7 @@ for x in range(0,dimval[0],1):
     #print(np.trapz(w.m,p_pw)/(9.81*1000.0)*-1000.0)
     #pw[x,y] = np.trapz(w.m,p_pw)/(9.81*1000.0)
     pw[x,y] = mpcalc.precipitable_water(ds['P'].isel(latitude=x,longitude=y),ds['TD'].isel(latitude=x,longitude=y),bottom=pbot,top=ptop).m
-    
+
 # Now add PW to the dataset
 pwda = xr.DataArray(pw,dims=['latitude','longitude'],coords=[ds.coords['latitude'],ds.coords['longitude']],attrs={'units':'millimeters'})
 ivtda = xr.DataArray(ivt,dims=['latitude','longitude'],coords=[ds.coords['latitude'],ds.coords['longitude']])
@@ -156,6 +175,9 @@ ivtda = xr.DataArray(ivt,dims=['latitude','longitude'],coords=[ds.coords['latitu
 heights_300 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=300.0)), sigma=1.5, order=0)
 heights_700 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=700.0)), sigma=1.5, order=0)
 heights_850 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=850.0)), sigma=1.5, order=0)
+
+temps_850 = ndimage.gaussian_filter(ds['T'].sel(level=850.0),sigma=1.5,order=0)*units('kelvin')
+temps_700 = ndimage.gaussian_filter(ds['T'].sel(level=700.0),sigma=1.5,order=0)*units('kelvin')
 
 # Smooth the wind data
 uwnd_300 = ndimage.gaussian_filter(ds['U'].sel(level=300.0), sigma=3.0) * units('m/s')
@@ -198,10 +220,10 @@ axis_setup(ax1)
 #                       transform=ccrs.PlateCarree())
 cf1 = ax1.contourf(lon_2d, lat_2d, pwda, cmap='Greens',transform=ccrs.PlateCarree(),levels=np.arange(0,100,10))
 c1a = ax1.contour(lon_2d, lat_2d, heights_700, h7lev, colors='black', linewidths=2,transform=ccrs.PlateCarree())
-#ax1.barbs(lon_2d, lat_2d, uwnd_300.to(units.knots).m,vwnd_300.to(units.knots).m, length=6,
-#         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
+ax1.barbs(lon_2d, lat_2d, uwnd_700.to(units.knots).m,vwnd_700.to(units.knots).m, length=6,
+         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 #ax1.clabel(c1a, fontsize=10, inline=1, inline_spacing=1, fmt='%i', rightside_up=True)
-#ax1.set_title('10m Streamlines (kts)', fontsize=16)
+ax1.set_title('PW/700hPa heights', fontsize=16)
 #ax1.add_patch(patch)
 cb1 = fig.colorbar(cf1, ax=ax1, orientation='horizontal', shrink=0.74, pad=0.01)
 cb1.set_label('mm', size='x-large')
@@ -217,36 +239,44 @@ c2a = ax2.contour(lon_2d, lat_2d, heights_700, h7lev, colors='black', linewidths
 #ax2.barbs(lon_2d, lat_2d, uwnd_700.to(units.knots).m,vwnd_700.to(units.knots).m, length=6,
 #         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 #ax2.clabel(c2a, fontsize=10, inline=1, inline_spacing=1, fmt='%i', rightside_up=True)
-#ax2.set_title('700-hPa Winds and Heights', fontsize=16)
+ax2.set_title('IVT/700 hPa heights', fontsize=16)
 cb2 = fig.colorbar(cf2, ax=ax2, orientation='horizontal', shrink=0.74, pad=0.01)
 cb2.set_label('kg/m/s', size='x-large')
 
 # LOWER LEFT PANEL- 850 hPa winds/height
-ax3 = plt.subplot(gs[1,0],projection=crs)
+ax3 = plt.subplot(gs[1,1],projection=crs)
 axis_setup(ax3)
-#cf3 = ax3.contourf(lon_2d, lat_2d, winds_850,cmap='cool',transform=ccrs.PlateCarree(),levels=np.arange(20,100,10))
-#c3a = ax3.contour(lon_2d, lat_2d, heights_850, h85lev, colors='black', linewidths=2,
-#                       transform=ccrs.PlateCarree())
-#ax3.barbs(lon_2d, lat_2d, uwnd_850.to(units.knots).m,vwnd_850.to(units.knots).m, length=6,
-#         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
-#ax3.clabel(c3a, fontsize=10, inline=1, inline_spacing=1, fmt='%i', rightside_up=True)
+cf3 = ax3.contourf(lon_2d, lat_2d, thetaE_850, cmap='jet', levels=np.arange(250,350,5), transform=ccrs.PlateCarree())
+c3a = ax3.contour(lon_2d, lat_2d, heights_850, levels=h85lev, linewidths=2, transform=ccrs.PlateCarree(),colors='black')
+ax3.barbs(lon_2d, lat_2d, uwnd_850.to(units.knots).m,vwnd_850.to(units.knots).m, length=6,
+         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
+ax3.set_title('850 hPa theta-E, heights', fontsize=16)
+cb3 = fig.colorbar(cf3, ax=ax3, orientation='horizontal', shrink=0.74, pad=0.01)
+cb3.set_label('K', size='x-large')
+#cf3 = ax3.contourf(lon_2d, lat_2d, winds_850.m,cmap='cool',transform=ccrs.PlateCarree(),levels=np.arange(20,100,10))
+#c3a = ax2.contour(lon_2d, lat_2d, heights_850, h85lev, colors='black', linewidths=2, transform=ccrs.PlateCarree())
+#c3b = ax3.contour(lon_2d,lat_2d,temps_850.to('degC'),levels=np.arange(-20,20,2), colors='red',transform=ccrs.PlateCarree(),linewidths=1,linestyles='dashed')
 #ax3.set_title('850-hPa Winds and Heights', fontsize=16)
 #cb3 = fig.colorbar(cf3, ax=ax3, orientation='horizontal', shrink=0.74, pad=0.01)
 #cb3.set_label('kts', size='x-large')
 
 # LOWER RIGHT PANEL- MSLP/2mT
-ax4 = plt.subplot(gs[1,1],projection=crs)
+ax4 = plt.subplot(gs[1,0],projection=crs)
 axis_setup(ax4)
-#cf4 = ax4.contourf(lon_2d, lat_2d, sds['VAR_2T']-273.15,cmap='coolwarm', levels=np.arange(-40,40,2),transform=ccrs.PlateCarree())
-#c4a = ax4.contour(lon_2d, lat_2d, smooth_MSL/100.0, colors='black', linewidths=1, levels=np.arange(888,1056,2),
-#                       transform=ccrs.PlateCarree())
-#ax4.clabel(c4a, fontsize=10, inline=1, inline_spacing=7, fmt='%i', rightside_up=True, use_clabeltext=True, colors='white')
-#ax4.set_title('MSLP/2mT', fontsize=16)
-#cb4 = fig.colorbar(cf4, ax=ax4, orientation='horizontal', shrink=0.74, pad=0.01)
-#cb4.set_label('degC', size='x-large')
+cf4 = ax4.contourf(lon_2d, lat_2d, winds_700.m,cmap='cool',transform=ccrs.PlateCarree(),levels=np.arange(20,100,10))
+c4a = ax4.contour(lon_2d, lat_2d, heights_700, h7lev, colors='black', linewidths=2,
+                       transform=ccrs.PlateCarree())
+c4b = ax4.contour(lon_2d,lat_2d,temps_700.to('degC'),levels=np.arange(-30,0,2), colors='blue',transform=ccrs.PlateCarree(),linewidths=1,linestyles='dashed')
+c4c = ax4.contour(lon_2d,lat_2d,temps_700.to('degC'),levels=np.arange(1,10,2), colors='red',transform=ccrs.PlateCarree(),linewidths=1,linestyles='dashed')
+#ax4.barbs(lon_2d, lat_2d, uwnd_700.to(units.knots).m,vwnd_700.to(units.knots).m, length=6,
+#         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
+#ax4.clabel(c4a, fontsize=10, inline=1, inline_spacing=1, fmt='%i', rightside_up=True)
+ax4.set_title('700-hPa Winds and Heights', fontsize=16)
+cb4 = fig.colorbar(cf4, ax=ax4, orientation='horizontal', shrink=0.74, pad=0.01)
+cb4.set_label('kts', size='x-large')
 
 # Set figure title
-fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (int(p.opt['fnum'])), fontsize=24)
+fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (fn), fontsize=24)
 
 # Save figure
-plt.savefig('moist_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (int(p.opt['fnum']))+'.png')
+plt.savefig('moist_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (fn)+'.png')

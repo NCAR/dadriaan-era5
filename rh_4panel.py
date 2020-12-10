@@ -20,7 +20,7 @@ import metpy.calc as mpcalc
 import metpy.plots as mpplt
 from metpy.units import units
 
-import datetime
+import datetime, os
 
 # Set the requested date
 rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
@@ -28,44 +28,59 @@ rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
 # What date string
 yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
+hhmmss = rd.strftime('%H%M%S')
+fn = int(p.opt['fnum'])
 
-# What 3D product strings
-prod3d = ['_t.','_r.','_z.']
+# File strings
+f3d = 'rh_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
+f2d = 'rh_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
 
-# Set RDA credentials
-session_manager.set_session_options(auth=p.opt['creds'])
+if not os.path.exists(f3d) and not os.path.exists(f2d):
 
-# The dataset catalog
-cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
+  print("\nUSING RDA\n")
 
-# Get all of the datasets in the catalog
-files = cat.datasets
+  # What 3D product strings
+  prod3d = ['_t.','_r.','_z.']
 
-# Turn this list of files into a list
-allfiles = list(files)
+  # Set RDA credentials
+  session_manager.set_session_options(auth=p.opt['creds'])
 
-# Loop through the files and save the ones we want to load
-casefiles = [i for i in allfiles if yyyymmdd in  i]
+  # The dataset catalog
+  cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
 
-# Find the indexes in the list of files we want to load
-indexes = [allfiles.index(f) for f in casefiles]
+  # Get all of the datasets in the catalog
+  files = cat.datasets
 
-# Trim down files further based on product
-li = []
-for cf in indexes:
-  for p3 in prod3d:
-    if p3 in files[cf].name and '.nc' in files[cf].name:
-      li.append(cf)
+  # Turn this list of files into a list
+  allfiles = list(files)
 
-# Load using list comprehension, creating list of xarray dataset objects
-singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+  # Loop through the files and save the ones we want to load
+  casefiles = [i for i in allfiles if yyyymmdd in  i]
 
-# Combine all of the datasets (all files into a single dataset)
-ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
-print(ds)
+  # Find the indexes in the list of files we want to load
+  indexes = [allfiles.index(f) for f in casefiles]
 
-# Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
-ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+  # Trim down files further based on product
+  li = []
+  for cf in indexes:
+    for p3 in prod3d:
+      if p3 in files[cf].name and '.nc' in files[cf].name:
+        li.append(cf)
+
+  # Load using list comprehension, creating list of xarray dataset objects
+  singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+
+  # Combine all of the datasets (all files into a single dataset)
+  ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
+  print(ds)
+
+  # Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
+  ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+  
+  ds.to_netcdf(f3d)
+else:
+  print("\nLOADING LOCAL\n")
+  ds = xr.open_dataset(f3d)
 
 # Coordinate reference system
 crs = ccrs.LambertConformal(central_longitude=-100.0, central_latitude=45.0)
@@ -194,7 +209,7 @@ cb4 = plt.colorbar(cf4, ax=ax4, orientation='horizontal', shrink=0.74, pad=0.05)
 cb4.set_label('%', size='x-large')
 
 # Set figure title
-fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (int(p.opt['fnum'])), fontsize=24)
+fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (fn), fontsize=24)
 
 # Save figure
-plt.savefig('rh_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (int(p.opt['fnum']))+'.png')
+plt.savefig('rh_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (fn)+'.png')

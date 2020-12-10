@@ -24,7 +24,7 @@ import metpy.calc as mpcalc
 import metpy.plots as mpplt
 from metpy.units import units
 
-import datetime
+import datetime, os
 
 # Find the correct Convair position file
 #acpos = "/home/dadriaan/projects/icicle/data/convair/planet/position/FINAL/ICICLE_Flight_%02d_position.csv" % (int(p.opt['fnum']))
@@ -35,59 +35,76 @@ rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
 # What date string
 yyyymm = rd.strftime('%Y%m')
 yyyymmdd = rd.strftime('%Y%m%d')
+hhmmss = rd.strftime('%H%M%S')
+fn = int(p.opt['fnum'])
 
-# What 3D product strings
-prod3d = ['_u.','_v.','_z.']
-prod2d = ['_10u.','_10v.','_msl.','_2t.']
+# File strings
+f3d = 'wnd_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
+f2d = 'wnd_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
 
-# Set RDA credentials
-session_manager.set_session_options(auth=p.opt['creds'])
+if not os.path.exists(f3d) and not os.path.exists(f2d):
 
-# The dataset catalog
-cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
-catsfc = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.sfc/'+yyyymm+'/catalog.xml')
+  print("\nUSING RDA\n")
 
-# Get all of the datasets in the catalog
-files = cat.datasets
-sfiles = catsfc.datasets
+  # What 3D product strings
+  prod3d = ['_u.','_v.','_z.']
+  prod2d = ['_10u.','_10v.','_msl.','_2t.']
 
-# Turn this list of files into a list
-allfiles = list(files)
-allsfc = list(sfiles)
+  # Set RDA credentials
+  session_manager.set_session_options(auth=p.opt['creds'])
 
-# Loop through the files and save the ones we want to load
-casefiles = [i for i in allfiles if yyyymmdd in  i]
-sfcfiles = [i for i in allsfc if yyyymmdd in i]
+  # The dataset catalog
+  cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
+  catsfc = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.sfc/'+yyyymm+'/catalog.xml')
 
-# Find the indexes in the list of files we want to load
-indexes = [allfiles.index(f) for f in casefiles]
-sindexes = [allsfc.index(f) for f in allsfc]
+  # Get all of the datasets in the catalog
+  files = cat.datasets
+  sfiles = catsfc.datasets
 
-# Trim down files further based on product
-li = []
-for cf in indexes:
-  for p3 in prod3d:
-    if p3 in files[cf].name:
-      li.append(cf)
-lsi = []
-for sf in sindexes:
-  for p2 in prod2d:
-    if p2 in sfiles[sf].name:
-      lsi.append(sf)
+  # Turn this list of files into a list
+  allfiles = list(files)
+  allsfc = list(sfiles)
 
-# Load using list comprehension, creating list of xarray dataset objects
-singlesets = [files[i].remote_access(use_xarray=True) for i in li]
-singlesfc = [sfiles[i].remote_access(use_xarray=True) for i in lsi]
+  # Loop through the files and save the ones we want to load
+  casefiles = [i for i in allfiles if yyyymmdd in  i]
+  sfcfiles = [i for i in allsfc if yyyymmdd in i]
 
-# Combine all of the datasets (all files into a single dataset)
-ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
-sds = xr.combine_by_coords(singlesfc,combine_attrs="drop")
+  # Find the indexes in the list of files we want to load
+  indexes = [allfiles.index(f) for f in casefiles]
+  sindexes = [allsfc.index(f) for f in allsfc]
 
-# Trim down the surface data to what we want
-sds = sds[['MSL','VAR_10U','VAR_10V','VAR_2T']].sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+  # Trim down files further based on product
+  li = []
+  for cf in indexes:
+    for p3 in prod3d:
+      if p3 in files[cf].name:
+        li.append(cf)
+  lsi = []
+  for sf in sindexes:
+    for p2 in prod2d:
+      if p2 in sfiles[sf].name:
+        lsi.append(sf)
 
-# Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
-ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+  # Load using list comprehension, creating list of xarray dataset objects
+  singlesets = [files[i].remote_access(use_xarray=True) for i in li]
+  singlesfc = [sfiles[i].remote_access(use_xarray=True) for i in lsi]
+
+  # Combine all of the datasets (all files into a single dataset)
+  ds = xr.combine_by_coords(singlesets,combine_attrs="drop")
+  sds = xr.combine_by_coords(singlesfc,combine_attrs="drop")
+
+  # Trim down the surface data to what we want
+  sds = sds[['MSL','VAR_10U','VAR_10V','VAR_2T']].sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+
+  # Subset the dataset. We want all levels, at a specific time, and reduce lat/lon
+  ds = ds.sel(time=rd,latitude=slice(60,15),longitude=slice(230,300))
+
+  ds.to_netcdf(f3d)
+  sds.to_netcdf(f2d)
+else:
+  print("\nLOADING LOCAL\n")
+  ds = xr.open_dataset(f3d)
+  sds = xr.open_dataset(f2d)
 
 # Coordinate reference system
 crs = ccrs.LambertConformal(central_longitude=-100.0, central_latitude=45.0)
@@ -206,7 +223,7 @@ axis_setup(ax4)
 #cb4.set_label('degC', size='x-large')
 
 # Set figure title
-fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (int(p.opt['fnum'])), fontsize=24)
+fig.suptitle(rd.strftime('%d %B %Y %H:%MZ')+' F%02d' % (fn), fontsize=24)
 
 # Save figure
-plt.savefig('wnd_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (int(p.opt['fnum']))+'.png')
+plt.savefig('wnd_'+rd.strftime('%Y%m%d%H')+'_'+'%02d' % (fn)+'.png')
