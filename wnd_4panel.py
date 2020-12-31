@@ -39,15 +39,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'wnd_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'wnd_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
-if not os.path.exists(f3d) and not os.path.exists(f2d):
+if not os.path.exists(f3d) or not os.path.exists(f2d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
   prod2d = ['_10u.','_10v.','_msl.','_2t.']
 
   # Set RDA credentials
@@ -158,11 +158,11 @@ winds_10m = mpcalc.wind_speed(uwnd_10,vwnd_10).to(units.knots)
 
 # Contour levels for heights
 h3lev = np.arange(8500.0,10000.0,30.0)
-h5lev = np.arange(4800.0,5800.0,30.0)
+h5lev = np.arange(4800.0,6800.0,40.0)
 h6lev = np.arange(3500.0,4500.0,30.0)
 h7lev = np.arange(2500.0,3500.0,30.0)
 h85lev = np.arange(1000.0,2000.0,30.0)
-h92lev = np.arange(0.0,1000.0,30.0)
+h92lev = np.arange(0.0,2000.0,30.0)
 
 # Stuff for Convair path
 verts = [(-100.0,45.0),(-90.0,45.0)]

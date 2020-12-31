@@ -29,15 +29,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'fgen_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'fgen_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
-if not os.path.exists(f3d) and not os.path.exists(f2d):
+if not os.path.exists(f3d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.','_t.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
 
   # Set RDA credentials
   session_manager.set_session_options(auth=p.opt['creds'])
@@ -110,11 +110,11 @@ heights_850 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(
 heights_925 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=925.0)), sigma=1.5, order=0)
 
 # Contour levels for heights
-h5lev = np.arange(4800.0,5800.0,30.0)
+h5lev = np.arange(4800.0,6800.0,40.0)
 h6lev = np.arange(3500.0,4500.0,30.0)
 h7lev = np.arange(2500.0,3500.0,30.0)
 h85lev = np.arange(1000.0,2000.0,30.0)
-h92lev = np.arange(0.0,1000.0,30.0)
+h92lev = np.arange(0.0,2000.0,30.0)
 
 # Compute 700 hPa frontogenesis
 # First compute potential temperature, then compute frontogenesis
