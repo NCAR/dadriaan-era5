@@ -39,16 +39,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'uppr_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'uppr_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
-if not os.path.exists(f3d) and not os.path.exists(f2d):
+if not os.path.exists(f3d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.','_t.','_r.']
-  prod2d = ['_10u.','_10v.','_msl.','_2t.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
 
   # Set RDA credentials
   session_manager.set_session_options(auth=p.opt['creds'])
@@ -115,10 +114,8 @@ def axis_setup(ax):
 # Combine 1D latitude and longitudes into a 2D grid of locations
 lon_2d, lat_2d = np.meshgrid(ds['longitude'], ds['latitude'])
 
-# Compute 500mb heights
-Z500 = mpcalc.geopotential_to_height(ds['Z'])
-
 # Get geopotential height where RH >80% and T>=-23C (RHwater)
+#Z500 = mpcalc.geopotential_to_height(ds['Z'])
 #zmask = Z500.where(((ds['R']>80.0) & ((ds['T']>=250.15) & (ds['T']<=273.15))))
 #zmax = zmask.max(dim='level',skipna=True)
 #zmin = zmask.min(dim='level',skipna=True)
@@ -129,15 +126,16 @@ Z500 = mpcalc.geopotential_to_height(ds['Z'])
 heights_500 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=500.0)), sigma=1.5, order=0)
 heights_250 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=250.0)), sigma=1.5, order=0)
 
+# Smooth temp data
 temps_500 = ndimage.gaussian_filter(ds['T'].sel(level=500.0),sigma=1.5,order=0)*units('kelvin')
 
 # Compute the grid delta
 dx, dy = mpcalc.lat_lon_grid_deltas(ds['longitude'],ds['latitude'])
 
 # Compute coriolis force
-f = mpcalc.coriolis_parameter(np.deg2rad(lat_2d)).to(units('1/sec'))
+#f = mpcalc.coriolis_parameter(np.deg2rad(lat_2d)).to(units('1/sec'))
 
-# Get the wind data
+# Get the wind data for vorticity
 uwnd_500 = ds['U'].sel(level=500.0)
 vwnd_500 = ds['V'].sel(level=500.0)
 
