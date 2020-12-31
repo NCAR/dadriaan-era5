@@ -17,7 +17,7 @@ import metpy.calc as mpcalc
 import metpy.plots as mpplt
 from metpy.units import units
 
-import datetime
+import datetime, os
 
 # Set the requested date
 rd = datetime.datetime.strptime(p.opt['tstring'],'%Y-%m-%d %H:%M:%S')
@@ -29,15 +29,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'tadv_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'tadv_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
-if not os.path.exists(f3d) and not os.path.exists(f2d):
+if not os.path.exists(f3d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.','_t.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
 
   # Set RDA credentials
   session_manager.set_session_options(auth=p.opt['creds'])
@@ -110,11 +110,11 @@ heights_850 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(
 heights_925 = ndimage.gaussian_filter(mpcalc.geopotential_to_height(ds['Z'].sel(level=925.0)), sigma=1.5, order=0)
 
 # Contour levels for heights
-h5lev = np.arange(4800.0,5800.0,30.0)
+h5lev = np.arange(4800.0,6800.0,40.0)
 h6lev = np.arange(3500.0,4500.0,30.0)
 h7lev = np.arange(2500.0,3500.0,30.0)
 h85lev = np.arange(1000.0,2000.0,30.0)
-h92lev = np.arange(0.0,1000.0,30.0)
+h92lev = np.arange(0.0,2000.0,30.0)
 
 # Smooth the wind data
 #uwnd_500 = mpcalc.smooth_n_point(ds['U'].metpy.sel(level=500.0).squeeze(), 9)
@@ -154,10 +154,10 @@ tmpk_925 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
 
 # Compute advection
 #tadv_500 = mpcalc.advection(tmpk_500, (uwind_500, vwind_500),(dx, dy)).to_base_units()
-tadv_600 = mpcalc.advection(tmpk_600, [uwind_600,vwind_600],(dx, dy))
-tadv_700 = mpcalc.advection(tmpk_700, [uwind_700, vwind_700],(dx, dy))
-tadv_850 = mpcalc.advection(tmpk_850, [uwind_850, vwind_850],(dx, dy))
-tadv_925 = mpcalc.advection(tmpk_925, [uwind_925, vwind_925],(dx, dy))
+tadv_600 = mpcalc.advection(tmpk_600, uwind_600, vwind_600,dx=dx,dy=dy)
+tadv_700 = mpcalc.advection(tmpk_700, uwind_700, vwind_700,dx=dx,dy=dy)
+tadv_850 = mpcalc.advection(tmpk_850, uwind_850, vwind_850,dx=dx,dy=dy)
+tadv_925 = mpcalc.advection(tmpk_925, uwind_925, vwind_925,dx=dx,dy=dy)
 
 # Smooth advection
 #tadv_500 = ndimage.gaussian_filter(tadv_500,sigma=3,order=0)*units('K/sec')
