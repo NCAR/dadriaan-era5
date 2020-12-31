@@ -36,6 +36,7 @@ zoom = [255.,280.,35.,50.]
 tstring = '2019-02-01 00:00:00'
 
 ####### fnum #######
+#
 # NAME: fnum
 # OPTIONS:
 # TYPE: integer
@@ -45,16 +46,27 @@ tstring = '2019-02-01 00:00:00'
 #
 fnum = 5
 
-####### creds #######
-#
-# NAME: creds
+####### user #######
+# 
+# NAME: user
 # OPTIONS:
-# TYPE: 
-# FORMAT: ('username','password')
-# DEFAULT:
-# DESCRIPTION: Username and password for THREDDS dataserver
+# TYPE: string
+# FORMAT:
+# DEFAULT: ''
+# DESCRIPTION: Username for NCAR RDA
 #
-creds = ('username','password')
+user = ''
+
+####### auth #######
+#
+# NAME: auth
+# OPTIONS:
+# TYPE: string
+# FORMAT:
+# DEFAULT: ''
+# DESCRIPTION: Authentication for NCAR RDA
+#
+auth = ''
 
 ###### input_dir #######
 #

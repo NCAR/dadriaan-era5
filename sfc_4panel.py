@@ -51,7 +51,7 @@ if not os.path.exists(f3d) or not os.path.exists(f2d):
   prod2d = ['_10u.','_10v.','_msl.','_2t.']
 
   # Set RDA credentials
-  session_manager.set_session_options(auth=p.opt['creds'])
+  session_manager.set_session_options(auth=tuple([p.opt['user'],p.opt['auth']]))
 
   # The dataset catalog
   cat = TDSCatalog('https://rda.ucar.edu/thredds/catalog/files/g/ds633.0/e5.oper.an.pl/'+yyyymm+'/catalog.xml')
