@@ -55,4 +55,36 @@ fnum = 5
 # DESCRIPTION: Username and password for THREDDS dataserver
 #
 creds = ('username','password')
+
+###### input_dir #######
+#
+# NAME: input_dir
+# OPTIONS:
+# TYPE:
+# FORMAT: string
+# DEFAULT: ''
+# DESCRIPTION: Where to look for input data and write images
+#
+input_dir = ''
+
+####### model_name #######
+#
+# NAME: model_name
+# OPTIONS: 'era5' or 'hrrr'
+# TYPE:
+# FORMAT: string
+# DEFAULT: 'era5'
+# DESCRIPTION: String to ID model
+#
+model_name = 'era5'
+
+####### matchfile #######
+#
+# NAME: matchfile
+# OPTIONS:
+# TYPE:
+# FORMAT: string
+# DEFAULT: ''
+# DESCRIPTION: CSV file containing i,j matched to aircraft location for the model_name specified
+matchfile = ''
 """
