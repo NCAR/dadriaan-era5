@@ -39,15 +39,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'moist_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'moist_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
 if not os.path.exists(f3d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
 
   # Set RDA credentials
   session_manager.set_session_options(auth=p.opt['creds'])
@@ -116,13 +116,7 @@ def axis_setup(ax):
 lon_2d, lat_2d = np.meshgrid(ds['longitude'], ds['latitude'])
 
 # Create 3D P
-dimval = list(ds.dims.values())
-p3d = np.empty([dimval[1],dimval[0],dimval[2]])
-for y in np.arange(0,dimval[0],1):
-  for x in np.arange(0,dimval[2],1):
-    #p3d[:,y,x] = ds.level.values[::-1]
-    p3d[:,y,x] = ds.level.values
-ds['P'] = xr.DataArray(p3d,dims=['level','latitude','longitude'],coords=ds.coords,attrs={'units':'hectopascals'})
+ds['P'] = xr.DataArray(ds.level.values,dims=['level'],coords={'level':ds.level.values},attrs={'units':'hectopascals'}).broadcast_like(ds['T'])
 
 # Have a spot to reset RH to 100 if > 100?
 
@@ -146,6 +140,7 @@ ds.load()
 print(datetime.datetime.now()-t1)
 
 # Loop over x and y and compute the PW
+dimval = list(ds.dims.values())
 tx = datetime.datetime.now()
 pw = np.empty([dimval[0],dimval[2]])
 ivt = np.empty([dimval[0],dimval[2]])
@@ -199,11 +194,11 @@ wdir_850 = mpcalc.wind_direction(uwnd_850,vwnd_700)
 
 # Contour levels for heights
 h3lev = np.arange(8500.0,10000.0,30.0)
-h5lev = np.arange(4800.0,5800.0,30.0)
+h5lev = np.arange(4800.0,6800.0,40.0)
 h6lev = np.arange(3500.0,4500.0,30.0)
 h7lev = np.arange(2500.0,3500.0,30.0)
 h85lev = np.arange(1000.0,2000.0,30.0)
-h92lev = np.arange(0.0,1000.0,30.0)
+h92lev = np.arange(0.0,2000.0,30.0)
 
 # Stuff for Convair path
 verts = [(-100.0,45.0),(-90.0,45.0)]
@@ -234,7 +229,8 @@ axis_setup(ax2)
 #cf2 = ax2.contourf(lon_2d, lat_2d, winds_700,cmap='cool',transform=ccrs.PlateCarree(),levels=np.arange(20,100,10))
 #c2a = ax2.contour(lon_2d, lat_2d, heights_700, h7lev, colors='black', linewidths=2,
 #                       transform=ccrs.PlateCarree())
-cf2 = ax2.contourf(lon_2d, lat_2d, ivt,cmap='inferno', transform=ccrs.PlateCarree(),levels=np.arange(0,1000,100))
+#cf2 = ax2.contourf(lon_2d, lat_2d, ivt,cmap='inferno', transform=ccrs.PlateCarree(),levels=np.arange(0,1000,100))
+cf2 = ax2.contourf(lon_2d, lat_2d, ivt,cmap='Oranges', transform=ccrs.PlateCarree(),levels=np.arange(50,1000,100))
 c2a = ax2.contour(lon_2d, lat_2d, heights_700, h7lev, colors='black', linewidths=2, transform=ccrs.PlateCarree())
 #ax2.barbs(lon_2d, lat_2d, uwnd_700.to(units.knots).m,vwnd_700.to(units.knots).m, length=6,
 #         regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
@@ -246,7 +242,7 @@ cb2.set_label('kg/m/s', size='x-large')
 # LOWER LEFT PANEL- 850 hPa winds/height
 ax3 = plt.subplot(gs[1,1],projection=crs)
 axis_setup(ax3)
-cf3 = ax3.contourf(lon_2d, lat_2d, thetaE_850, cmap='jet', levels=np.arange(250,350,5), transform=ccrs.PlateCarree())
+cf3 = ax3.contourf(lon_2d, lat_2d, thetaE_850, cmap='jet', levels=np.arange(250,350,2), transform=ccrs.PlateCarree())
 c3a = ax3.contour(lon_2d, lat_2d, heights_850, levels=h85lev, linewidths=2, transform=ccrs.PlateCarree(),colors='black')
 ax3.barbs(lon_2d, lat_2d, uwnd_850.to(units.knots).m,vwnd_850.to(units.knots).m, length=6,
          regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
