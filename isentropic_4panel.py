@@ -29,15 +29,15 @@ hhmmss = rd.strftime('%H%M%S')
 fn = int(p.opt['fnum'])
 
 # File strings
-f3d = 'isentropic_%s_%s_F%02d_3D.nc' % (yyyymmdd,hhmmss,fn)
-f2d = 'isentropic_%s_%s_F%02d_2D.nc' % (yyyymmdd,hhmmss,fn)
+f3d = '%s/flight%02d/%s_%s_F%02d_3D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
+f2d = '%s/flight%02d/%s_%s_F%02d_2D.nc' % (p.opt['input_dir'],fn,yyyymmdd,hhmmss,fn)
 
-if not os.path.exists(f3d) and not os.path.exists(f2d):
+if not os.path.exists(f3d):
 
   print("\nUSING RDA\n")
 
   # What 3D product strings
-  prod3d = ['_u.','_v.','_z.','_t.','_q.','_r.']
+  prod3d = ['_u.','_v.','_z.','_t.','_p.','_q.','_r.']
 
   # Set RDA credentials
   session_manager.set_session_options(auth=p.opt['creds'])
@@ -92,12 +92,7 @@ dx, dy = mpcalc.lat_lon_grid_deltas(lon_2d, lat_2d)
 isentlevs = [290.0, 292.0, 294.0, 296.0]*units.kelvin
 
 # Isentropic coordinates
-iso_anx = mpcalc.isentropic_interpolation(isentlevs,ds.level,ds['T'],ds['Q'],ds['R'],ds['U'],ds['V'],ds['Z'],temperature_out=True)
-
-# Pull out the components
-isop, isot, isoq, isor, isou, isov, isoz = iso_anx
-isou.ito('kt')
-isov.ito('kt')
+iso_anx = mpcalc.isentropic_interpolation_as_dataset(isentlevs,ds['T'],ds['Q'],ds['R'],ds['U'],ds['V'],ds['Z'])
 
 # Set a new figure window
 fig = plt.figure(1, figsize=(22, 15))
@@ -121,12 +116,12 @@ rlev = np.arange(0,120.0,10.0)
 il = 0
 ax1 = plt.subplot(gs[0,0],projection=crs)
 axis_setup(ax1)
-cf1 = ax1.contourf(lon_2d, lat_2d, isor[il,:,:], cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
-c1a = ax1.contour(lon_2d, lat_2d, isop[il,:,:], plev, colors='black', linewidths=1,
+cf1 = ax1.contourf(lon_2d, lat_2d, iso_anx['R'].isel(isentropic_level=il), cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
+c1a = ax1.contour(lon_2d, lat_2d, iso_anx['pressure'].isel(isentropic_level=il), plev, colors='black', linewidths=1,
                        transform=ccrs.PlateCarree())
-c1b = ax1.contour(lon_2d,lat_2d,isoq[il,:,:],colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
+c1b = ax1.contour(lon_2d,lat_2d,iso_anx['Q'].isel(isentropic_level=il),colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
 ax1.set_title('290K Pressure/Wind/RH/mixr', fontsize=16)
-ax1.barbs(lon_2d, lat_2d, isou[il,:,:].m,isov[il,:,:].m, length=6,
+ax1.barbs(lon_2d, lat_2d, iso_anx['U'].isel(isentropic_level=il)*units('m/s').to(units.knots),iso_anx['V'].isel(isentropic_level=il)*units('m/s').to(units.knots), length=6,
          regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 ax1.clabel(c1a, fontsize=10, inline=1, inline_spacing=7,
           fmt='%i', rightside_up=True, use_clabeltext=True, colors='white')
@@ -137,12 +132,12 @@ cb1.set_label('RH (%)', size='x-large')
 il = 1
 ax2 = plt.subplot(gs[0,1],projection=crs)
 axis_setup(ax2)
-cf2 = ax2.contourf(lon_2d, lat_2d, isor[il,:,:], cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
-c2a = ax2.contour(lon_2d, lat_2d, isop[il,:,:], plev, colors='black', linewidths=1,
+cf2 = ax2.contourf(lon_2d, lat_2d, iso_anx['R'].isel(isentropic_level=il), cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
+c2a = ax2.contour(lon_2d, lat_2d, iso_anx['pressure'].isel(isentropic_level=il), plev, colors='black', linewidths=1,
                        transform=ccrs.PlateCarree())
-c2b = ax2.contour(lon_2d,lat_2d,isoq[il,:,:],colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
+c2b = ax2.contour(lon_2d,lat_2d,iso_anx['Q'].isel(isentropic_level=il),colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
 ax2.set_title('292K Pressure/Wind/RH/mixr', fontsize=16)
-ax2.barbs(lon_2d, lat_2d, isou[il,:,:].m,isov[il,:,:].m, length=6,
+ax2.barbs(lon_2d, lat_2d, iso_anx['U'].isel(isentropic_level=il)*units('m/s').to(units.knots),iso_anx['V'].isel(isentropic_level=il)*units('m/s').to(units.knots), length=6,
          regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 ax2.clabel(c2a, fontsize=10, inline=1, inline_spacing=7,
           fmt='%i', rightside_up=True, use_clabeltext=True, colors='white')
@@ -153,12 +148,12 @@ cb2.set_label('RH (%)', size='x-large')
 il = 2
 ax3 = plt.subplot(gs[1,0],projection=crs)
 axis_setup(ax3)
-cf3 = ax3.contourf(lon_2d, lat_2d, isor[il,:,:], cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
-c3a = ax3.contour(lon_2d, lat_2d, isop[il,:,:], plev, colors='black', linewidths=1,
+cf3 = ax3.contourf(lon_2d, lat_2d, iso_anx['R'].isel(isentropic_level=il), cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
+c3a = ax3.contour(lon_2d, lat_2d, iso_anx['pressure'].isel(isentropic_level=il), plev, colors='black', linewidths=1,
                        transform=ccrs.PlateCarree())
-c3b = ax3.contour(lon_2d,lat_2d,isoq[il,:,:],colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
+c3b = ax3.contour(lon_2d,lat_2d,iso_anx['Q'].isel(isentropic_level=il),colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
 ax3.set_title('294K Pressure/Wind/RH/mixr', fontsize=16)
-ax3.barbs(lon_2d, lat_2d, isou[il,:,:].m,isov[il,:,:].m, length=6,
+ax3.barbs(lon_2d, lat_2d, iso_anx['U'].isel(isentropic_level=il)*units('m/s').to(units.knots),iso_anx['V'].isel(isentropic_level=il)*units('m/s').to(units.knots), length=6,
          regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 ax3.clabel(c3a, fontsize=10, inline=1, inline_spacing=7,
           fmt='%i', rightside_up=True, use_clabeltext=True, colors='white')
@@ -169,12 +164,12 @@ cb3.set_label('RH (%)', size='x-large')
 il = 3
 ax4 = plt.subplot(gs[1,1],projection=crs)
 axis_setup(ax4)
-cf4 = ax4.contourf(lon_2d, lat_2d, isor[il,:,:], cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
-c4a = ax4.contour(lon_2d, lat_2d, isop[il,:,:], plev, colors='black', linewidths=1,
+cf4 = ax4.contourf(lon_2d, lat_2d, iso_anx['R'].isel(isentropic_level=il), cmap=plt.cm.gist_earth_r, transform=ccrs.PlateCarree(), levels=rlev)
+c4a = ax4.contour(lon_2d, lat_2d, iso_anx['pressure'].isel(isentropic_level=il), plev, colors='black', linewidths=1,
                        transform=ccrs.PlateCarree())
-c4b = ax4.contour(lon_2d,lat_2d,isoq[il,:,:],colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
+c4b = ax4.contour(lon_2d,lat_2d,iso_anx['Q'].isel(isentropic_level=il),colors='lightgreen',linewidths=1,linestyles='--',transform=ccrs.PlateCarree())
 ax4.set_title('296K Pressure/Wind/RH/mixr', fontsize=16)
-ax4.barbs(lon_2d, lat_2d, isou[il,:,:].m,isov[il,:,:].m, length=6,
+ax4.barbs(lon_2d, lat_2d, iso_anx['U'].isel(isentropic_level=il)*units('m/s').to(units.knots),iso_anx['V'].isel(isentropic_level=il)*units('m/s').to(units.knots), length=6,
          regrid_shape=10, pivot='middle', transform=ccrs.PlateCarree())
 ax4.clabel(c4a, fontsize=10, inline=1, inline_spacing=7,
           fmt='%i', rightside_up=True, use_clabeltext=True, colors='white')
