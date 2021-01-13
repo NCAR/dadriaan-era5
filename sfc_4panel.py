@@ -253,7 +253,7 @@ cb1.set_label('kts', size='x-large')
 # LOWER RIGHT PANEL- 10m streamlines
 ax3 = plt.subplot(gs[1,1],projection=crs)
 axis_setup(ax3)
-sp3 = ax3.streamplot(lon_2d, lat_2d, uwnd_10, vwnd_10, density=5, transform=ccrs.PlateCarree(), color=np.asarray(winds_10m))
+sp3 = ax3.streamplot(lon_2d, lat_2d, uwnd_10.m, vwnd_10.m, density=5, transform=ccrs.PlateCarree(), color=np.asarray(winds_10m))
 ax3.set_title('10m Streamlines', fontsize=16)
 cb3 = fig.colorbar(sp3.lines, ax=ax3, orientation='horizontal', shrink=0.74, pad=0.01)
 cb3.set_label('kts', size='x-large')
