@@ -146,11 +146,11 @@ vwind_925 = ds['V'].metpy.sel(level=925.0).metpy.unit_array
 #tmpk_850 = mpcalc.smooth_n_point(ds['T'].metpy.sel(level=850.0).metpy.unit_array.squeeze(), 9).to('degC')
 #tmpk_925 = mpcalc.smooth_n_point(ds['T'].metpy.sel(level=925.0).metpy.unit_array.squeeze(), 9).to('degC')
 
-#tmpk_500 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
+#tmpk_500 = ds['T'].metpy.sel(level=500.0).metpy.unit_array
 tmpk_600 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
-tmpk_700 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
-tmpk_850 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
-tmpk_925 = ds['T'].metpy.sel(level=600.0).metpy.unit_array
+tmpk_700 = ds['T'].metpy.sel(level=700.0).metpy.unit_array
+tmpk_850 = ds['T'].metpy.sel(level=850.0).metpy.unit_array
+tmpk_925 = ds['T'].metpy.sel(level=925.0).metpy.unit_array
 
 # Compute advection
 #tadv_500 = mpcalc.advection(tmpk_500, (uwind_500, vwind_500),(dx, dy)).to_base_units()
